@@ -1,3 +1,0 @@
-              - name: PHP Compatibility
-                uses: pantheon-systems/phpcompatibility-action@v1
-            
