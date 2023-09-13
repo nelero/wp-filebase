@@ -24,9 +24,9 @@ jobs:
             phpcs_bin_path: 'phpcs' # Custom PHPCS bin path
             use_local_config: 'false' # Use local config if available
             extra_args: '-d memory_limit=512M --report-json=./phpcs.json'
-        - name: Update summary
-          run: |
-              npm i -g github:10up/phpcs-json-to-md
-              phpcs-json-to-md --path ./phpcs.json --output ./phpcs.md -d memory_limit=512M
-              cat phpcs.md >> $GITHUB_STEP_SUMMARY
-              if: always()
+       #- name: Update summary
+       #   run: |
+       #       npm i -g github:10up/phpcs-json-to-md
+       #       phpcs-json-to-md --path ./phpcs.json --output ./phpcs.md -d memory_limit=512M
+       #       cat phpcs.md >> $GITHUB_STEP_SUMMARY
+       #       i f: always()
