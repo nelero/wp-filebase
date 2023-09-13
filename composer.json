@@ -1,5 +1,28 @@
 {
+    "name": "nelero/wp-filebase",
+    "description": "Adds a powerful download manager including file categories, downloads counter, widgets, sorted file lists and more to your WordPress blog.",
+    "type": "project",
     "require": {
+        "php": ">=7.0",
         "james-heinrich/getid3": "~2.0.0-dev"
+    },
+    "require-dev": {
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "phpunit/phpunit": "^9.6",
+        "wp-coding-standards/wpcs": "^2.3",
+        "squizlabs/php_codesniffer": "^3.6",
+        "yoast/phpunit-polyfills": "^1.0"
+    },
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Aurelien Pohu"
+        }
+    ],
+    "minimum-stability": "stable",
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
     }
 }
