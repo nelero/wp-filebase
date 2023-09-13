@@ -2,15 +2,15 @@
 
 namespace JamesHeinrich\GetID3\Module\Archive;
 
+use JamesHeinrich\GetID3\Module\Handler;
 use JamesHeinrich\GetID3\Utils;
 
 /////////////////////////////////////////////////////////////////
 /// getID3() by James Heinrich <info@getid3.org>               //
-//  available at http://getid3.sourceforge.net                 //
-//            or http://www.getid3.org                         //
-//          also https://github.com/JamesHeinrich/getID3       //
-/////////////////////////////////////////////////////////////////
-// See readme.txt for more details                             //
+//  available at https://github.com/JamesHeinrich/getID3       //
+//            or https://www.getid3.org                        //
+//            or http://getid3.sourceforge.net                 //
+//  see readme.txt for more details                            //
 /////////////////////////////////////////////////////////////////
 //                                                             //
 // module.archive.rar.php                                      //
@@ -18,17 +18,24 @@ use JamesHeinrich\GetID3\Utils;
 //                                                            ///
 /////////////////////////////////////////////////////////////////
 
-class Rar extends \JamesHeinrich\GetID3\Module\Handler
+class Rar extends Handler
 {
+	/**
+	 * if true use PHP RarArchive extension, if false (non-extension parsing not yet written in getID3)
+	 *
+	 * @var bool
+	 */
+	public $use_php_rar_extension = true;
 
-	public $option_use_rar_extension = false;
-
+	/**
+	 * @return bool
+	 */
 	public function Analyze() {
 		$info = &$this->getid3->info;
 
 		$info['fileformat'] = 'rar';
 
-		if ($this->option_use_rar_extension === true) {
+		if ($this->use_php_rar_extension === true) {
 			if (function_exists('rar_open')) {
 				if ($rp = rar_open($info['filenamepath'])) {
 					$info['rar']['files'] = array();
@@ -39,13 +46,13 @@ class Rar extends \JamesHeinrich\GetID3\Module\Handler
 					rar_close($rp);
 					return true;
 				} else {
-					$info['error'][] = 'failed to rar_open('.$info['filename'].')';
+					$this->error('failed to rar_open('.$info['filename'].')');
 				}
 			} else {
-				$info['error'][] = 'RAR support does not appear to be available in this PHP installation';
+				$this->error('RAR support does not appear to be available in this PHP installation');
 			}
 		} else {
-			$info['error'][] = 'PHP-RAR processing has been disabled (set ' . get_class($this) . '->option_use_rar_extension=true to enable)';
+			$this->error('PHP-RAR processing has been disabled (set ' . get_class($this) . '->use_php_rar_extension=true to enable)');
 		}
 		return false;
 

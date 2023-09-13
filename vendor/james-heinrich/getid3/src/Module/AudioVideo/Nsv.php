@@ -2,15 +2,15 @@
 
 namespace JamesHeinrich\GetID3\Module\AudioVideo;
 
+use JamesHeinrich\GetID3\Module\Handler;
 use JamesHeinrich\GetID3\Utils;
 
 /////////////////////////////////////////////////////////////////
 /// getID3() by James Heinrich <info@getid3.org>               //
-//  available at http://getid3.sourceforge.net                 //
-//            or http://www.getid3.org                         //
-//          also https://github.com/JamesHeinrich/getID3       //
-/////////////////////////////////////////////////////////////////
-// See readme.txt for more details                             //
+//  available at https://github.com/JamesHeinrich/getID3       //
+//            or https://www.getid3.org                        //
+//            or http://getid3.sourceforge.net                 //
+//  see readme.txt for more details                            //
 /////////////////////////////////////////////////////////////////
 //                                                             //
 // module.audio.nsv.php                                        //
@@ -18,9 +18,11 @@ use JamesHeinrich\GetID3\Utils;
 //                                                            ///
 /////////////////////////////////////////////////////////////////
 
-class Nsv extends \JamesHeinrich\GetID3\Module\Handler
+class Nsv extends Handler
 {
-
+	/**
+	 * @return bool
+	 */
 	public function Analyze() {
 		$info = &$this->getid3->info;
 
@@ -50,18 +52,22 @@ class Nsv extends \JamesHeinrich\GetID3\Module\Handler
 				break;
 
 			default:
-				$info['error'][] = 'Expecting "NSVs" or "NSVf" at offset '.$info['avdataoffset'].', found "' . Utils::PrintHexBytes($NSVheader) . '"';
+				$this->error('Expecting "NSVs" or "NSVf" at offset '.$info['avdataoffset'].', found "' . Utils::PrintHexBytes($NSVheader) . '"');
 				return false;
-				break;
 		}
 
 		if (!isset($info['nsv']['NSVf'])) {
-			$info['warning'][] = 'NSVf header not present - cannot calculate playtime or bitrate';
+			$this->warning('NSVf header not present - cannot calculate playtime or bitrate');
 		}
 
 		return true;
 	}
 
+	/**
+	 * @param int $fileoffset
+	 *
+	 * @return bool
+	 */
 	public function getNSVsHeaderFilepointer($fileoffset) {
 		$info = &$this->getid3->info;
 		$this->fseek($fileoffset);
@@ -72,7 +78,7 @@ class Nsv extends \JamesHeinrich\GetID3\Module\Handler
 		$offset += 4;
 
 		if ($info['nsv']['NSVs']['identifier'] != 'NSVs') {
-			$info['error'][] = 'expected "NSVs" at offset ('.$fileoffset.'), found "'.$info['nsv']['NSVs']['identifier'].'" instead';
+			$this->error('expected "NSVs" at offset ('.$fileoffset.'), found "'.$info['nsv']['NSVs']['identifier'].'" instead');
 			unset($info['nsv']['NSVs']);
 			return false;
 		}
@@ -135,6 +141,12 @@ class Nsv extends \JamesHeinrich\GetID3\Module\Handler
 		return true;
 	}
 
+	/**
+	 * @param int  $fileoffset
+	 * @param bool $getTOCoffsets
+	 *
+	 * @return bool
+	 */
 	public function getNSVfHeaderFilepointer($fileoffset, $getTOCoffsets=false) {
 		$info = &$this->getid3->info;
 		$this->fseek($fileoffset);
@@ -145,7 +157,7 @@ class Nsv extends \JamesHeinrich\GetID3\Module\Handler
 		$offset += 4;
 
 		if ($info['nsv']['NSVf']['identifier'] != 'NSVf') {
-			$info['error'][] = 'expected "NSVf" at offset ('.$fileoffset.'), found "'.$info['nsv']['NSVf']['identifier'].'" instead';
+			$this->error('expected "NSVf" at offset ('.$fileoffset.'), found "'.$info['nsv']['NSVf']['identifier'].'" instead');
 			unset($info['nsv']['NSVf']);
 			return false;
 		}
@@ -158,7 +170,7 @@ class Nsv extends \JamesHeinrich\GetID3\Module\Handler
 		$offset += 4;
 
 		if ($info['nsv']['NSVf']['file_size'] > $info['avdataend']) {
-			$info['warning'][] = 'truncated file - NSVf header indicates '.$info['nsv']['NSVf']['file_size'].' bytes, file actually '.$info['avdataend'].' bytes';
+			$this->warning('truncated file - NSVf header indicates '.$info['nsv']['NSVf']['file_size'].' bytes, file actually '.$info['avdataend'].' bytes');
 		}
 
 		$info['nsv']['NSVf']['playtime_ms']   = Utils::LittleEndian2Int(substr($NSVfheader, $offset, 4));
@@ -171,7 +183,7 @@ class Nsv extends \JamesHeinrich\GetID3\Module\Handler
 		$offset += 4;
 
 		if ($info['nsv']['NSVf']['playtime_ms'] == 0) {
-			$info['error'][] = 'Corrupt NSV file: NSVf.playtime_ms == zero';
+			$this->error('Corrupt NSV file: NSVf.playtime_ms == zero');
 			return false;
 		}
 
@@ -208,18 +220,22 @@ class Nsv extends \JamesHeinrich\GetID3\Module\Handler
 		return true;
 	}
 
-
+	/**
+	 * @param int $framerateindex
+	 *
+	 * @return float|false
+	 */
 	public static function NSVframerateLookup($framerateindex) {
 		if ($framerateindex <= 127) {
 			return (float) $framerateindex;
 		}
 		static $NSVframerateLookup = array();
 		if (empty($NSVframerateLookup)) {
-			$NSVframerateLookup[129] = (float) 29.970;
-			$NSVframerateLookup[131] = (float) 23.976;
-			$NSVframerateLookup[133] = (float) 14.985;
-			$NSVframerateLookup[197] = (float) 59.940;
-			$NSVframerateLookup[199] = (float) 47.952;
+			$NSVframerateLookup[129] = 29.970;
+			$NSVframerateLookup[131] = 23.976;
+			$NSVframerateLookup[133] = 14.985;
+			$NSVframerateLookup[197] = 59.940;
+			$NSVframerateLookup[199] = 47.952;
 		}
 		return (isset($NSVframerateLookup[$framerateindex]) ? $NSVframerateLookup[$framerateindex] : false);
 	}

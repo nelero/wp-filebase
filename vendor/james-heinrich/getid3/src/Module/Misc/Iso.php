@@ -2,15 +2,15 @@
 
 namespace JamesHeinrich\GetID3\Module\Misc;
 
+use JamesHeinrich\GetID3\Module\Handler;
 use JamesHeinrich\GetID3\Utils;
 
 /////////////////////////////////////////////////////////////////
 /// getID3() by James Heinrich <info@getid3.org>               //
-//  available at http://getid3.sourceforge.net                 //
-//            or http://www.getid3.org                         //
-//          also https://github.com/JamesHeinrich/getID3       //
-/////////////////////////////////////////////////////////////////
-// See readme.txt for more details                             //
+//  available at https://github.com/JamesHeinrich/getID3       //
+//            or https://www.getid3.org                        //
+//            or http://getid3.sourceforge.net                 //
+//  see readme.txt for more details                            //
 /////////////////////////////////////////////////////////////////
 //                                                             //
 // module.misc.iso.php                                         //
@@ -18,9 +18,11 @@ use JamesHeinrich\GetID3\Utils;
 //                                                            ///
 /////////////////////////////////////////////////////////////////
 
-class Iso extends \JamesHeinrich\GetID3\Module\Handler
+class Iso extends Handler
 {
-
+	/**
+	 * @return bool
+	 */
 	public function Analyze() {
 		$info = &$this->getid3->info;
 
@@ -30,7 +32,7 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 			$this->fseek(2048 * $i);
 			$ISOheader = $this->fread(2048);
 			if (substr($ISOheader, 1, 5) == 'CD001') {
-				switch (ord($ISOheader{0})) {
+				switch (ord($ISOheader[0])) {
 					case 1:
 						$info['iso']['primary_volume_descriptor']['offset'] = 2048 * $i;
 						$this->ParsePrimaryVolumeDescriptor($ISOheader);
@@ -51,14 +53,20 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		$this->ParsePathTable();
 
 		$info['iso']['files'] = array();
-		foreach ($info['iso']['path_table']['directories'] as $directorynum => $directorydata) {
-			$info['iso']['directories'][$directorynum] = $this->ParseDirectoryRecord($directorydata);
+		if (!empty($info['iso']['path_table']['directories'])) {
+			foreach ($info['iso']['path_table']['directories'] as $directorynum => $directorydata) {
+				$info['iso']['directories'][$directorynum] = $this->ParseDirectoryRecord($directorydata);
+			}
 		}
 
 		return true;
 	}
 
-
+	/**
+	 * @param string $ISOheader
+	 *
+	 * @return bool
+	 */
 	public function ParsePrimaryVolumeDescriptor(&$ISOheader) {
 		// ISO integer values are stored *BOTH* Little-Endian AND Big-Endian format!!
 		// ie 12345 == 0x3039  is stored as $39 $30 $30 $39 in a 4-byte field
@@ -72,7 +80,7 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		$thisfile_iso_primaryVD_raw['volume_descriptor_type']         = Utils::LittleEndian2Int(substr($ISOheader,    0, 1));
 		$thisfile_iso_primaryVD_raw['standard_identifier']            =                  substr($ISOheader,    1, 5);
 		if ($thisfile_iso_primaryVD_raw['standard_identifier'] != 'CD001') {
-			$info['error'][] = 'Expected "CD001" at offset ('.($thisfile_iso_primaryVD['offset'] + 1).'), found "'.$thisfile_iso_primaryVD_raw['standard_identifier'].'" instead';
+			$this->error('Expected "CD001" at offset ('.($thisfile_iso_primaryVD['offset'] + 1).'), found "'.$thisfile_iso_primaryVD_raw['standard_identifier'].'" instead');
 			unset($info['fileformat']);
 			unset($info['iso']);
 			return false;
@@ -126,13 +134,17 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		$thisfile_iso_primaryVD['volume_effective_date_time']    = $this->ISOtimeText2UNIXtime($thisfile_iso_primaryVD_raw['volume_effective_date_time']);
 
 		if (($thisfile_iso_primaryVD_raw['volume_space_size'] * 2048) > $info['filesize']) {
-			$info['error'][] = 'Volume Space Size ('.($thisfile_iso_primaryVD_raw['volume_space_size'] * 2048).' bytes) is larger than the file size ('.$info['filesize'].' bytes) (truncated file?)';
+			$this->error('Volume Space Size ('.($thisfile_iso_primaryVD_raw['volume_space_size'] * 2048).' bytes) is larger than the file size ('.$info['filesize'].' bytes) (truncated file?)');
 		}
 
 		return true;
 	}
 
-
+	/**
+	 * @param string $ISOheader
+	 *
+	 * @return bool
+	 */
 	public function ParseSupplementaryVolumeDescriptor(&$ISOheader) {
 		// ISO integer values are stored Both-Endian format!!
 		// ie 12345 == 0x3039  is stored as $39 $30 $30 $39 in a 4-byte field
@@ -146,7 +158,7 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		$thisfile_iso_supplementaryVD_raw['volume_descriptor_type'] = Utils::LittleEndian2Int(substr($ISOheader,    0, 1));
 		$thisfile_iso_supplementaryVD_raw['standard_identifier']    =                  substr($ISOheader,    1, 5);
 		if ($thisfile_iso_supplementaryVD_raw['standard_identifier'] != 'CD001') {
-			$info['error'][] = 'Expected "CD001" at offset ('.($thisfile_iso_supplementaryVD['offset'] + 1).'), found "'.$thisfile_iso_supplementaryVD_raw['standard_identifier'].'" instead';
+			$this->error('Expected "CD001" at offset ('.($thisfile_iso_supplementaryVD['offset'] + 1).'), found "'.$thisfile_iso_supplementaryVD_raw['standard_identifier'].'" instead');
 			unset($info['fileformat']);
 			unset($info['iso']);
 			return false;
@@ -205,13 +217,15 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		$thisfile_iso_supplementaryVD['volume_effective_date_time']     = $this->ISOtimeText2UNIXtime($thisfile_iso_supplementaryVD_raw['volume_effective_date_time']);
 
 		if (($thisfile_iso_supplementaryVD_raw['volume_space_size'] * $thisfile_iso_supplementaryVD_raw['logical_block_size']) > $info['filesize']) {
-			$info['error'][] = 'Volume Space Size ('.($thisfile_iso_supplementaryVD_raw['volume_space_size'] * $thisfile_iso_supplementaryVD_raw['logical_block_size']).' bytes) is larger than the file size ('.$info['filesize'].' bytes) (truncated file?)';
+			$this->error('Volume Space Size ('.($thisfile_iso_supplementaryVD_raw['volume_space_size'] * $thisfile_iso_supplementaryVD_raw['logical_block_size']).' bytes) is larger than the file size ('.$info['filesize'].' bytes) (truncated file?)');
 		}
 
 		return true;
 	}
 
-
+	/**
+	 * @return bool
+	 */
 	public function ParsePathTable() {
 		$info = &$this->getid3->info;
 		if (!isset($info['iso']['supplementary_volume_descriptor']['raw']['path_table_l_location']) && !isset($info['iso']['primary_volume_descriptor']['raw']['path_table_l_location'])) {
@@ -228,7 +242,7 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		}
 
 		if (($PathTableLocation * 2048) > $info['filesize']) {
-			$info['error'][] = 'Path Table Location specifies an offset ('.($PathTableLocation * 2048).') beyond the end-of-file ('.$info['filesize'].')';
+			$this->error('Path Table Location specifies an offset ('.($PathTableLocation * 2048).') beyond the end-of-file ('.$info['filesize'].')');
 			return false;
 		}
 
@@ -238,6 +252,7 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 
 		$offset = 0;
 		$pathcounter = 1;
+		$FullPathArray = array();
 		while ($offset < $PathTableSize) {
 			// shortcut
 			$info['iso']['path_table']['directories'][$pathcounter] = array();
@@ -270,7 +285,11 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		return true;
 	}
 
-
+	/**
+	 * @param array $directorydata
+	 *
+	 * @return array
+	 */
 	public function ParseDirectoryRecord($directorydata) {
 		$info = &$this->getid3->info;
 		if (isset($info['iso']['supplementary_volume_descriptor'])) {
@@ -281,10 +300,13 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 
 		$this->fseek($directorydata['location_bytes']);
 		$DirectoryRecordData = $this->fread(1);
+		$DirectoryRecord = array();
 
-		while (ord($DirectoryRecordData{0}) > 33) {
+		while (ord($DirectoryRecordData[0]) > 33) {
 
-			$DirectoryRecordData .= $this->fread(ord($DirectoryRecordData{0}) - 1);
+			$DirectoryRecordData .= $this->fread(ord($DirectoryRecordData[0]) - 1);
+
+			$ThisDirectoryRecord = array();
 
 			$ThisDirectoryRecord['raw']['length']                    = Utils::LittleEndian2Int(substr($DirectoryRecordData,  0, 1));
 			$ThisDirectoryRecord['raw']['extended_attribute_length'] = Utils::LittleEndian2Int(substr($DirectoryRecordData,  1, 1));
@@ -324,6 +346,11 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		return $DirectoryRecord;
 	}
 
+	/**
+	 * @param string $ISOfilename
+	 *
+	 * @return string
+	 */
 	public function ISOstripFilenameVersion($ISOfilename) {
 		// convert 'filename.ext;1' to 'filename.ext'
 		if (!strstr($ISOfilename, ';')) {
@@ -333,6 +360,11 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		}
 	}
 
+	/**
+	 * @param string $ISOtime
+	 *
+	 * @return int|false
+	 */
 	public function ISOtimeText2UNIXtime($ISOtime) {
 
 		$UNIXyear   = (int) substr($ISOtime,  0, 4);
@@ -348,6 +380,11 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		return gmmktime($UNIXhour, $UNIXminute, $UNIXsecond, $UNIXmonth, $UNIXday, $UNIXyear);
 	}
 
+	/**
+	 * @param string $ISOtime
+	 *
+	 * @return int
+	 */
 	public function ISOtime2UNIXtime($ISOtime) {
 		// Represented by seven bytes:
 		// 1: Number of years since 1900
@@ -358,17 +395,22 @@ class Iso extends \JamesHeinrich\GetID3\Module\Handler
 		// 6: second of the minute from 0 to 59
 		// 7: Offset from Greenwich Mean Time in number of 15 minute intervals from -48 (West) to +52 (East)
 
-		$UNIXyear   = ord($ISOtime{0}) + 1900;
-		$UNIXmonth  = ord($ISOtime{1});
-		$UNIXday    = ord($ISOtime{2});
-		$UNIXhour   = ord($ISOtime{3});
-		$UNIXminute = ord($ISOtime{4});
-		$UNIXsecond = ord($ISOtime{5});
-		$GMToffset  = $this->TwosCompliment2Decimal(ord($ISOtime{5}));
+		$UNIXyear   = ord($ISOtime[0]) + 1900;
+		$UNIXmonth  = ord($ISOtime[1]);
+		$UNIXday    = ord($ISOtime[2]);
+		$UNIXhour   = ord($ISOtime[3]);
+		$UNIXminute = ord($ISOtime[4]);
+		$UNIXsecond = ord($ISOtime[5]);
+		$GMToffset  = $this->TwosCompliment2Decimal(ord($ISOtime[5]));
 
 		return gmmktime($UNIXhour, $UNIXminute, $UNIXsecond, $UNIXmonth, $UNIXday, $UNIXyear);
 	}
 
+	/**
+	 * @param int $BinaryValue
+	 *
+	 * @return int
+	 */
 	public function TwosCompliment2Decimal($BinaryValue) {
 		// http://sandbox.mc.edu/~bennet/cs110/tc/tctod.html
 		// First check if the number is negative or positive by looking at the sign bit.

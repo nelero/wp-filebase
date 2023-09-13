@@ -2,15 +2,15 @@
 
 namespace JamesHeinrich\GetID3\Module\Audio;
 
+use JamesHeinrich\GetID3\Module\Handler;
 use JamesHeinrich\GetID3\Utils;
 
 /////////////////////////////////////////////////////////////////
 /// getID3() by James Heinrich <info@getid3.org>               //
-//  available at http://getid3.sourceforge.net                 //
-//            or http://www.getid3.org                         //
-//          also https://github.com/JamesHeinrich/getID3       //
-/////////////////////////////////////////////////////////////////
-// See readme.txt for more details                             //
+//  available at https://github.com/JamesHeinrich/getID3       //
+//            or https://www.getid3.org                        //
+//            or http://getid3.sourceforge.net                 //
+//  see readme.txt for more details                            //
 /////////////////////////////////////////////////////////////////
 //                                                             //
 // module.audio.avr.php                                        //
@@ -18,9 +18,11 @@ use JamesHeinrich\GetID3\Utils;
 //                                                            ///
 /////////////////////////////////////////////////////////////////
 
-class Avr extends \JamesHeinrich\GetID3\Module\Handler
+class Avr extends Handler
 {
-
+	/**
+	 * @return bool
+	 */
 	public function Analyze() {
 		$info = &$this->getid3->info;
 
@@ -72,7 +74,7 @@ class Avr extends \JamesHeinrich\GetID3\Module\Handler
 		$info['avr']['raw']['magic'] = substr($AVRheader,  0,  4);
 		$magic = '2BIT';
 		if ($info['avr']['raw']['magic'] != $magic) {
-			$info['error'][] = 'Expecting "'.Utils::PrintHexBytes($magic).'" at offset '.$info['avdataoffset'].', found "'.Utils::PrintHexBytes($info['avr']['raw']['magic']).'"';
+			$this->error('Expecting "'.Utils::PrintHexBytes($magic).'" at offset '.$info['avdataoffset'].', found "'.Utils::PrintHexBytes($info['avr']['raw']['magic']).'"');
 			unset($info['fileformat']);
 			unset($info['avr']);
 			return false;
@@ -109,7 +111,7 @@ class Avr extends \JamesHeinrich\GetID3\Module\Handler
 		}
 
 		if (($info['avdataend'] - $info['avdataoffset']) != ($info['avr']['sample_length'] * (($info['avr']['bits_per_sample'] == 8) ? 1 : 2))) {
-			$info['warning'][] = 'Probable truncated file: expecting '.($info['avr']['sample_length'] * (($info['avr']['bits_per_sample'] == 8) ? 1 : 2)).' bytes of audio data, found '.($info['avdataend'] - $info['avdataoffset']);
+			$this->warning('Probable truncated file: expecting '.($info['avr']['sample_length'] * (($info['avr']['bits_per_sample'] == 8) ? 1 : 2)).' bytes of audio data, found '.($info['avdataend'] - $info['avdataoffset']));
 		}
 
 		$info['audio']['dataformat']      = 'avr';
