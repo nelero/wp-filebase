@@ -2,15 +2,15 @@
 
 namespace JamesHeinrich\GetID3\Module\Audio;
 
+use JamesHeinrich\GetID3\Module\Handler;
 use JamesHeinrich\GetID3\Utils;
 
 /////////////////////////////////////////////////////////////////
 /// getID3() by James Heinrich <info@getid3.org>               //
-//  available at http://getid3.sourceforge.net                 //
-//            or http://www.getid3.org                         //
-//          also https://github.com/JamesHeinrich/getID3       //
-/////////////////////////////////////////////////////////////////
-// See readme.txt for more details                             //
+//  available at https://github.com/JamesHeinrich/getID3       //
+//            or https://www.getid3.org                        //
+//            or http://getid3.sourceforge.net                 //
+//  see readme.txt for more details                            //
 /////////////////////////////////////////////////////////////////
 //                                                             //
 // module.audio.au.php                                         //
@@ -18,9 +18,11 @@ use JamesHeinrich\GetID3\Utils;
 //                                                            ///
 /////////////////////////////////////////////////////////////////
 
-class Au extends \JamesHeinrich\GetID3\Module\Handler
+class Au extends Handler
 {
-
+	/**
+	 * @return bool
+	 */
 	public function Analyze() {
 		$info = &$this->getid3->info;
 
@@ -29,7 +31,7 @@ class Au extends \JamesHeinrich\GetID3\Module\Handler
 
 		$magic = '.snd';
 		if (substr($AUheader, 0, 4) != $magic) {
-			$info['error'][] = 'Expecting "'.Utils::PrintHexBytes($magic).'" (".snd") at offset '.$info['avdataoffset'].', found "'.Utils::PrintHexBytes(substr($AUheader, 0, 4)).'"';
+			$this->error('Expecting "'.Utils::PrintHexBytes($magic).'" (".snd") at offset '.$info['avdataoffset'].', found "'.Utils::PrintHexBytes(substr($AUheader, 0, 4)).'"');
 			return false;
 		}
 
@@ -64,7 +66,7 @@ class Au extends \JamesHeinrich\GetID3\Module\Handler
 		$info['audio']['channels']     = $thisfile_au['channels'];
 
 		if (($info['avdataoffset'] + $thisfile_au['data_size']) > $info['avdataend']) {
-			$info['warning'][] = 'Possible truncated file - expecting "'.$thisfile_au['data_size'].'" bytes of audio data, only found '.($info['avdataend'] - $info['avdataoffset']).' bytes"';
+			$this->warning('Possible truncated file - expecting "'.$thisfile_au['data_size'].'" bytes of audio data, only found '.($info['avdataend'] - $info['avdataoffset']).' bytes"');
 		}
 
 		$info['playtime_seconds'] = $thisfile_au['data_size'] / ($thisfile_au['sample_rate'] * $thisfile_au['channels'] * ($thisfile_au['used_bits_per_sample'] / 8));
@@ -73,6 +75,11 @@ class Au extends \JamesHeinrich\GetID3\Module\Handler
 		return true;
 	}
 
+	/**
+	 * @param int $id
+	 *
+	 * @return string|false
+	 */
 	public function AUdataFormatNameLookup($id) {
 		static $AUdataFormatNameLookup = array(
 			0  => 'unspecified format',
@@ -107,6 +114,11 @@ class Au extends \JamesHeinrich\GetID3\Module\Handler
 		return (isset($AUdataFormatNameLookup[$id]) ? $AUdataFormatNameLookup[$id] : false);
 	}
 
+	/**
+	 * @param int $id
+	 *
+	 * @return int|false
+	 */
 	public function AUdataFormatBitsPerSampleLookup($id) {
 		static $AUdataFormatBitsPerSampleLookup = array(
 			1  => 8,
@@ -135,6 +147,11 @@ class Au extends \JamesHeinrich\GetID3\Module\Handler
 		return (isset($AUdataFormatBitsPerSampleLookup[$id]) ? $AUdataFormatBitsPerSampleLookup[$id] : false);
 	}
 
+	/**
+	 * @param int $id
+	 *
+	 * @return int|false
+	 */
 	public function AUdataFormatUsedBitsPerSampleLookup($id) {
 		static $AUdataFormatUsedBitsPerSampleLookup = array(
 			1  => 8,

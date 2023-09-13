@@ -2,15 +2,15 @@
 
 namespace JamesHeinrich\GetID3\Module\Graphic;
 
+use JamesHeinrich\GetID3\Module\Handler;
 use JamesHeinrich\GetID3\Utils;
 
 /////////////////////////////////////////////////////////////////
 /// getID3() by James Heinrich <info@getid3.org>               //
-//  available at http://getid3.sourceforge.net                 //
-//            or http://www.getid3.org                         //
-//          also https://github.com/JamesHeinrich/getID3       //
-/////////////////////////////////////////////////////////////////
-// See readme.txt for more details                             //
+//  available at https://github.com/JamesHeinrich/getID3       //
+//            or https://www.getid3.org                        //
+//            or http://getid3.sourceforge.net                 //
+//  see readme.txt for more details                            //
 /////////////////////////////////////////////////////////////////
 //                                                             //
 // module.graphic.pcd.php                                      //
@@ -18,10 +18,13 @@ use JamesHeinrich\GetID3\Utils;
 //                                                            ///
 /////////////////////////////////////////////////////////////////
 
-class Pcd extends \JamesHeinrich\GetID3\Module\Handler
+class Pcd extends Handler
 {
 	public $ExtractData = 0;
 
+	/**
+	 * @return bool
+	 */
 	public function Analyze() {
 		$info = &$this->getid3->info;
 
@@ -47,10 +50,12 @@ class Pcd extends \JamesHeinrich\GetID3\Module\Handler
 
 		if ($this->ExtractData > 3) {
 
-			$info['error'][] = 'Cannot extract PSD image data for detail levels above BASE (level-3) because encrypted with Kodak-proprietary compression/encryption.';
+			$this->error('Cannot extract PSD image data for detail levels above BASE (level-3) because encrypted with Kodak-proprietary compression/encryption.');
+			return false;
 
 		} elseif ($this->ExtractData > 0) {
 
+			$PCD_levels    = array();
 			$PCD_levels[1] = array( 192,  128, 0x02000); // BASE/16
 			$PCD_levels[2] = array( 384,  256, 0x0B800); // BASE/4
 			$PCD_levels[3] = array( 768,  512, 0x30000); // BASE
@@ -76,11 +81,11 @@ class Pcd extends \JamesHeinrich\GetID3\Module\Handler
 
 				for ($x = 0; $x < $PCD_width; $x++) {
 					if ($PCDisVertical) {
-						$info['pcd']['data'][$PCD_width - $x][$y]     = $this->YCbCr2RGB(ord($PCD_data_Y1{$x}), ord($PCD_data_Cb{floor($x / 2)}), ord($PCD_data_Cr{floor($x / 2)}));
-						$info['pcd']['data'][$PCD_width - $x][$y + 1] = $this->YCbCr2RGB(ord($PCD_data_Y2{$x}), ord($PCD_data_Cb{floor($x / 2)}), ord($PCD_data_Cr{floor($x / 2)}));
+						$info['pcd']['data'][$PCD_width - $x][$y]     = $this->YCbCr2RGB(ord($PCD_data_Y1[$x]), ord($PCD_data_Cb[(int) floor($x / 2)]), ord($PCD_data_Cr[(int) floor($x / 2)]));
+						$info['pcd']['data'][$PCD_width - $x][$y + 1] = $this->YCbCr2RGB(ord($PCD_data_Y2[$x]), ord($PCD_data_Cb[(int) floor($x / 2)]), ord($PCD_data_Cr[(int) floor($x / 2)]));
 					} else {
-						$info['pcd']['data'][$y][$x]                  = $this->YCbCr2RGB(ord($PCD_data_Y1{$x}), ord($PCD_data_Cb{floor($x / 2)}), ord($PCD_data_Cr{floor($x / 2)}));
-						$info['pcd']['data'][$y + 1][$x]              = $this->YCbCr2RGB(ord($PCD_data_Y2{$x}), ord($PCD_data_Cb{floor($x / 2)}), ord($PCD_data_Cr{floor($x / 2)}));
+						$info['pcd']['data'][$y][$x]                  = $this->YCbCr2RGB(ord($PCD_data_Y1[$x]), ord($PCD_data_Cb[(int) floor($x / 2)]), ord($PCD_data_Cr[(int) floor($x / 2)]));
+						$info['pcd']['data'][$y + 1][$x]              = $this->YCbCr2RGB(ord($PCD_data_Y2[$x]), ord($PCD_data_Cb[(int) floor($x / 2)]), ord($PCD_data_Cr[(int) floor($x / 2)]));
 					}
 				}
 			}
@@ -99,8 +104,16 @@ class Pcd extends \JamesHeinrich\GetID3\Module\Handler
 
 		}
 
+		return false;
 	}
 
+	/**
+	 * @param int $Y
+	 * @param int $Cb
+	 * @param int $Cr
+	 *
+	 * @return int
+	 */
 	public function YCbCr2RGB($Y, $Cb, $Cr) {
 		static $YCbCr_constants = array();
 		if (empty($YCbCr_constants)) {

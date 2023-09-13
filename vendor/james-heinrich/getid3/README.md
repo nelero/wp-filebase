@@ -2,17 +2,17 @@ getID3
 ======
 
 A PHP library to extract and write useful information to/from popular multimedia file formats.  
-If you want to donate, there is a link on <http://www.getid3.org> for PayPal donations.
+If you want to donate, there is a link on <https://www.getid3.org> for PayPal donations.
 
 [![Latest Stable Version](https://poser.pugx.org/james-heinrich/getID3/version.svg)](https://packagist.org/packages/james-heinrich/getid3)
-[![Build Status](https://travis-ci.org/JamesHeinrich/getID3.svg?branch=2.0)](https://travis-ci.org/JamesHeinrich/getID3)
+[![Build Status](https://github.com/JamesHeinrich/getID3/actions/workflows/continuous-integration.yml/badge.svg?branch=2.0)](https://github.com/JamesHeinrich/getID3/actions?query=branch%3A2.0)
 
 
 Installation
 ============
 Using [composer](https://packagist.org/packages/james-heinrich/getid3):
 ```bash
-$ composer require "james-heinrich/getid3:~2.0.0-dev"
+$ composer require "james-heinrich/getid3:^2.0-dev"
 ```
 
 __How can I check that getID3() works on my server/files?:__  

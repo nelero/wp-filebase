@@ -2,15 +2,15 @@
 
 namespace JamesHeinrich\GetID3\Module\Tag;
 
+use JamesHeinrich\GetID3\Module\Handler;
 use JamesHeinrich\GetID3\Utils;
 
 /////////////////////////////////////////////////////////////////
 /// getID3() by James Heinrich <info@getid3.org>               //
-//  available at http://getid3.sourceforge.net                 //
-//            or http://www.getid3.org                         //
-//          also https://github.com/JamesHeinrich/getID3       //
-/////////////////////////////////////////////////////////////////
-// See readme.txt for more details                             //
+//  available at https://github.com/JamesHeinrich/getID3       //
+//            or https://www.getid3.org                        //
+//            or http://getid3.sourceforge.net                 //
+//  see readme.txt for more details                            //
 /////////////////////////////////////////////////////////////////
 //                                                             //
 // module.tag.apetag.php                                       //
@@ -18,16 +18,28 @@ use JamesHeinrich\GetID3\Utils;
 //                                                            ///
 /////////////////////////////////////////////////////////////////
 
-class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
+class ApeTag extends Handler
 {
-	public $inline_attachments = true; // true: return full data for all attachments; false: return no data for all attachments; integer: return data for attachments <= than this; string: save as file to this directory
+	/**
+	 * true: return full data for all attachments;
+	 * false: return no data for all attachments;
+	 * integer: return data for attachments <= than this;
+	 * string: save as file to this directory.
+	 *
+	 * @var int|bool|string
+	 */
+	public $inline_attachments = true;
+
 	public $overrideendoffset  = 0;
 
+	/**
+	 * @return bool
+	 */
 	public function Analyze() {
 		$info = &$this->getid3->info;
 
 		if (!Utils::intValueSupported($info['filesize'])) {
-			$info['warning'][] = 'Unable to check for APEtags because file is larger than '.round(PHP_INT_MAX / 1073741824).'GB';
+			$this->warning('Unable to check for APEtags because file is larger than '.round(PHP_INT_MAX / 1073741824).'GB');
 			return false;
 		}
 
@@ -76,7 +88,7 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 		$this->fseek($thisfile_ape['tag_offset_end'] - $apetagheadersize);
 		$APEfooterData = $this->fread(32);
 		if (!($thisfile_ape['footer'] = $this->parseAPEheaderFooter($APEfooterData))) {
-			$info['error'][] = 'Error parsing APE footer at offset '.$thisfile_ape['tag_offset_end'];
+			$this->error('Error parsing APE footer at offset '.$thisfile_ape['tag_offset_end']);
 			return false;
 		}
 
@@ -92,7 +104,7 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 		$info['avdataend'] = $thisfile_ape['tag_offset_start'];
 
 		if (isset($info['id3v1']['tag_offset_start']) && ($info['id3v1']['tag_offset_start'] < $thisfile_ape['tag_offset_end'])) {
-			$info['warning'][] = 'ID3v1 tag information ignored since it appears to be a false synch in APEtag data';
+			$this->warning('ID3v1 tag information ignored since it appears to be a false synch in APEtag data');
 			unset($info['id3v1']);
 			foreach ($info['warning'] as $key => $value) {
 				if ($value == 'Some ID3v1 fields do not use NULL characters for padding') {
@@ -108,7 +120,7 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 			if ($thisfile_ape['header'] = $this->parseAPEheaderFooter(substr($APEtagData, 0, $apetagheadersize))) {
 				$offset += $apetagheadersize;
 			} else {
-				$info['error'][] = 'Error parsing APE header at offset '.$thisfile_ape['tag_offset_start'];
+				$this->error('Error parsing APE header at offset '.$thisfile_ape['tag_offset_start']);
 				return false;
 			}
 		}
@@ -123,7 +135,7 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 			$item_flags = Utils::LittleEndian2Int(substr($APEtagData, $offset, 4));
 			$offset += 4;
 			if (strstr(substr($APEtagData, $offset), "\x00") === false) {
-				$info['error'][] = 'Cannot find null-byte (0x00) seperator between ItemKey #'.$i.' and value. ItemKey starts '.$offset.' bytes into the APE tag, at file offset '.($thisfile_ape['tag_offset_start'] + $offset);
+				$this->error('Cannot find null-byte (0x00) separator between ItemKey #'.$i.' and value. ItemKey starts '.$offset.' bytes into the APE tag, at file offset '.($thisfile_ape['tag_offset_start'] + $offset));
 				return false;
 			}
 			$ItemKeyLength = strpos($APEtagData, "\x00", $offset) - $offset;
@@ -154,44 +166,44 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 			switch (strtolower($item_key)) {
 				// http://wiki.hydrogenaud.io/index.php?title=ReplayGain#MP3Gain
 				case 'replaygain_track_gain':
-					if (preg_match('#^[\\-\\+][0-9\\.,]{8}$#', $thisfile_ape_items_current['data'][0])) {
-						$thisfile_replaygain['track']['adjustment'] = (float) str_replace(',', '.', $thisfile_ape_items_current['data'][0]); // float casting will see "0,95" as zero!
+					if (preg_match('#^([\\-\\+][0-9\\.,]{8})( dB)?$#', $thisfile_ape_items_current['data'][0], $matches)) {
+						$thisfile_replaygain['track']['adjustment'] = (float) str_replace(',', '.', $matches[1]); // float casting will see "0,95" as zero!
 						$thisfile_replaygain['track']['originator'] = 'unspecified';
 					} else {
-						$info['warning'][] = 'MP3gainTrackGain value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"';
+						$this->warning('MP3gainTrackGain value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"');
 					}
 					break;
 
 				case 'replaygain_track_peak':
-					if (preg_match('#^[0-9\\.,]{8}$#', $thisfile_ape_items_current['data'][0])) {
-						$thisfile_replaygain['track']['peak']       = (float) str_replace(',', '.', $thisfile_ape_items_current['data'][0]); // float casting will see "0,95" as zero!
+					if (preg_match('#^([0-9\\.,]{8})$#', $thisfile_ape_items_current['data'][0], $matches)) {
+						$thisfile_replaygain['track']['peak']       = (float) str_replace(',', '.', $matches[1]); // float casting will see "0,95" as zero!
 						$thisfile_replaygain['track']['originator'] = 'unspecified';
 						if ($thisfile_replaygain['track']['peak'] <= 0) {
-							$info['warning'][] = 'ReplayGain Track peak from APEtag appears invalid: '.$thisfile_replaygain['track']['peak'].' (original value = "'.$thisfile_ape_items_current['data'][0].'")';
+							$this->warning('ReplayGain Track peak from APEtag appears invalid: '.$thisfile_replaygain['track']['peak'].' (original value = "'.$thisfile_ape_items_current['data'][0].'")');
 						}
 					} else {
-						$info['warning'][] = 'MP3gainTrackPeak value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"';
+						$this->warning('MP3gainTrackPeak value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"');
 					}
 					break;
 
 				case 'replaygain_album_gain':
-					if (preg_match('#^[\\-\\+][0-9\\.,]{8}$#', $thisfile_ape_items_current['data'][0])) {
-						$thisfile_replaygain['album']['adjustment'] = (float) str_replace(',', '.', $thisfile_ape_items_current['data'][0]); // float casting will see "0,95" as zero!
+					if (preg_match('#^([\\-\\+][0-9\\.,]{8})( dB)?$#', $thisfile_ape_items_current['data'][0], $matches)) {
+						$thisfile_replaygain['album']['adjustment'] = (float) str_replace(',', '.', $matches[1]); // float casting will see "0,95" as zero!
 						$thisfile_replaygain['album']['originator'] = 'unspecified';
 					} else {
-						$info['warning'][] = 'MP3gainAlbumGain value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"';
+						$this->warning('MP3gainAlbumGain value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"');
 					}
 					break;
 
 				case 'replaygain_album_peak':
-					if (preg_match('#^[0-9\\.,]{8}$#', $thisfile_ape_items_current['data'][0])) {
-						$thisfile_replaygain['album']['peak']       = (float) str_replace(',', '.', $thisfile_ape_items_current['data'][0]); // float casting will see "0,95" as zero!
+					if (preg_match('#^([0-9\\.,]{8})$#', $thisfile_ape_items_current['data'][0], $matches)) {
+						$thisfile_replaygain['album']['peak']       = (float) str_replace(',', '.', $matches[1]); // float casting will see "0,95" as zero!
 						$thisfile_replaygain['album']['originator'] = 'unspecified';
 						if ($thisfile_replaygain['album']['peak'] <= 0) {
-							$info['warning'][] = 'ReplayGain Album peak from APEtag appears invalid: '.$thisfile_replaygain['album']['peak'].' (original value = "'.$thisfile_ape_items_current['data'][0].'")';
+							$this->warning('ReplayGain Album peak from APEtag appears invalid: '.$thisfile_replaygain['album']['peak'].' (original value = "'.$thisfile_ape_items_current['data'][0].'")');
 						}
 					} else {
-						$info['warning'][] = 'MP3gainAlbumPeak value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"';
+						$this->warning('MP3gainAlbumPeak value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"');
 					}
 					break;
 
@@ -202,7 +214,7 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 						$thisfile_replaygain['mp3gain']['undo_right'] = intval($mp3gain_undo_right);
 						$thisfile_replaygain['mp3gain']['undo_wrap']  = (($mp3gain_undo_wrap == 'Y') ? true : false);
 					} else {
-						$info['warning'][] = 'MP3gainUndo value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"';
+						$this->warning('MP3gainUndo value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"');
 					}
 					break;
 
@@ -212,7 +224,7 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 						$thisfile_replaygain['mp3gain']['globalgain_track_min'] = intval($mp3gain_globalgain_min);
 						$thisfile_replaygain['mp3gain']['globalgain_track_max'] = intval($mp3gain_globalgain_max);
 					} else {
-						$info['warning'][] = 'MP3gainMinMax value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"';
+						$this->warning('MP3gainMinMax value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"');
 					}
 					break;
 
@@ -222,14 +234,14 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 						$thisfile_replaygain['mp3gain']['globalgain_album_min'] = intval($mp3gain_globalgain_album_min);
 						$thisfile_replaygain['mp3gain']['globalgain_album_max'] = intval($mp3gain_globalgain_album_max);
 					} else {
-						$info['warning'][] = 'MP3gainAlbumMinMax value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"';
+						$this->warning('MP3gainAlbumMinMax value in APEtag appears invalid: "'.$thisfile_ape_items_current['data'][0].'"');
 					}
 					break;
 
 				case 'tracknumber':
 					if (is_array($thisfile_ape_items_current['data'])) {
 						foreach ($thisfile_ape_items_current['data'] as $comment) {
-							$thisfile_ape['comments']['track'][] = $comment;
+							$thisfile_ape['comments']['track_number'][] = $comment;
 						}
 					}
 					break;
@@ -257,7 +269,7 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 				case 'cover art (studio)':
 					// list of possible cover arts from http://taglib-sharp.sourcearchive.com/documentation/2.0.3.0-2/Ape_2Tag_8cs-source.html
 					if (is_array($thisfile_ape_items_current['data'])) {
-						$info['warning'][] = 'APEtag "'.$item_key.'" should be flagged as Binary data, but was incorrectly flagged as UTF-8';
+						$this->warning('APEtag "'.$item_key.'" should be flagged as Binary data, but was incorrectly flagged as UTF-8');
 						$thisfile_ape_items_current['data'] = implode("\x00", $thisfile_ape_items_current['data']);
 					}
 					list($thisfile_ape_items_current['filename'], $thisfile_ape_items_current['data']) = explode("\x00", $thisfile_ape_items_current['data'], 2);
@@ -269,7 +281,7 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 						$imageinfo = array();
 						$imagechunkcheck = Utils::GetDataImageSize($thisfile_ape_items_current['data'], $imageinfo);
 						if (($imagechunkcheck === false) || !isset($imagechunkcheck[2])) {
-							$info['warning'][] = 'APEtag "'.$item_key.'" contains invalid image data';
+							$this->warning('APEtag "'.$item_key.'" contains invalid image data');
 							break;
 						}
 						$thisfile_ape_items_current['image_mime'] = image_type_to_mime_type($imagechunkcheck[2]);
@@ -284,15 +296,15 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 						} elseif (is_int($this->inline_attachments)) {
 							if ($this->inline_attachments < $thisfile_ape_items_current['data_length']) {
 								// too big, skip
-								$info['warning'][] = 'attachment at '.$thisfile_ape_items_current['offset'].' is too large to process inline ('.number_format($thisfile_ape_items_current['data_length']).' bytes)';
+								$this->warning('attachment at '.$thisfile_ape_items_current['offset'].' is too large to process inline ('.number_format($thisfile_ape_items_current['data_length']).' bytes)');
 								unset($thisfile_ape_items_current['data']);
 								break;
 							}
 						} elseif (is_string($this->inline_attachments)) {
 							$this->inline_attachments = rtrim(str_replace(array('/', '\\'), DIRECTORY_SEPARATOR, $this->inline_attachments), DIRECTORY_SEPARATOR);
-							if (!is_dir($this->inline_attachments) || !is_writable($this->inline_attachments)) {
+							if (!is_dir($this->inline_attachments) || !Utils::isWritable($this->inline_attachments)) {
 								// cannot write, skip
-								$info['warning'][] = 'attachment at '.$thisfile_ape_items_current['offset'].' cannot be saved to "'.$this->inline_attachments.'" (not writable)';
+								$this->warning('attachment at '.$thisfile_ape_items_current['offset'].' cannot be saved to "'.$this->inline_attachments.'" (not writable)');
 								unset($thisfile_ape_items_current['data']);
 								break;
 							}
@@ -300,10 +312,10 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 						// if we get this far, must be OK
 						if (is_string($this->inline_attachments)) {
 							$destination_filename = $this->inline_attachments.DIRECTORY_SEPARATOR.md5($info['filenamepath']).'_'.$thisfile_ape_items_current['data_offset'];
-							if (!file_exists($destination_filename) || is_writable($destination_filename)) {
+							if (!file_exists($destination_filename) || Utils::isWritable($destination_filename)) {
 								file_put_contents($destination_filename, $thisfile_ape_items_current['data']);
 							} else {
-								$info['warning'][] = 'attachment at '.$thisfile_ape_items_current['offset'].' cannot be saved to "'.$destination_filename.'" (not writable)';
+								$this->warning('attachment at '.$thisfile_ape_items_current['offset'].' cannot be saved to "'.$destination_filename.'" (not writable)');
 							}
 							$thisfile_ape_items_current['data_filename'] = $destination_filename;
 							unset($thisfile_ape_items_current['data']);
@@ -339,10 +351,16 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 		return true;
 	}
 
+	/**
+	 * @param string $APEheaderFooterData
+	 *
+	 * @return array|false
+	 */
 	public function parseAPEheaderFooter($APEheaderFooterData) {
 		// http://www.uni-jena.de/~pfk/mpp/sv8/apeheader.html
 
 		// shortcut
+		$headerfooterinfo = array();
 		$headerfooterinfo['raw'] = array();
 		$headerfooterinfo_raw = &$headerfooterinfo['raw'];
 
@@ -363,10 +381,16 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 		return $headerfooterinfo;
 	}
 
+	/**
+	 * @param int $rawflagint
+	 *
+	 * @return array
+	 */
 	public function parseAPEtagFlags($rawflagint) {
 		// "Note: APE Tags 1.0 do not use any of the APE Tag flags.
 		// All are set to zero on creation and ignored on reading."
 		// http://wiki.hydrogenaud.io/index.php?title=Ape_Tags_Flags
+		$flags                      = array();
 		$flags['header']            = (bool) ($rawflagint & 0x80000000);
 		$flags['footer']            = (bool) ($rawflagint & 0x40000000);
 		$flags['this_is_header']    = (bool) ($rawflagint & 0x20000000);
@@ -378,6 +402,11 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 		return $flags;
 	}
 
+	/**
+	 * @param int $contenttypeid
+	 *
+	 * @return string
+	 */
 	public function APEcontentTypeFlagLookup($contenttypeid) {
 		static $APEcontentTypeFlagLookup = array(
 			0 => 'utf-8',
@@ -388,6 +417,11 @@ class ApeTag extends \JamesHeinrich\GetID3\Module\Handler
 		return (isset($APEcontentTypeFlagLookup[$contenttypeid]) ? $APEcontentTypeFlagLookup[$contenttypeid] : 'invalid');
 	}
 
+	/**
+	 * @param string $itemkey
+	 *
+	 * @return bool
+	 */
 	public function APEtagItemIsUTF8Lookup($itemkey) {
 		static $APEtagItemIsUTF8Lookup = array(
 			'title',

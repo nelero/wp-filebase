@@ -2,15 +2,15 @@
 
 namespace JamesHeinrich\GetID3\Module\Audio;
 
+use JamesHeinrich\GetID3\Module\Handler;
 use JamesHeinrich\GetID3\Utils;
 
 /////////////////////////////////////////////////////////////////
 /// getID3() by James Heinrich <info@getid3.org>               //
-//  available at http://getid3.sourceforge.net                 //
-//            or http://www.getid3.org                         //
-//          also https://github.com/JamesHeinrich/getID3       //
-/////////////////////////////////////////////////////////////////
-// See readme.txt for more details                             //
+//  available at https://github.com/JamesHeinrich/getID3       //
+//            or https://www.getid3.org                        //
+//            or http://getid3.sourceforge.net                 //
+//  see readme.txt for more details                            //
 /////////////////////////////////////////////////////////////////
 //                                                             //
 // module.audio.tta.php                                        //
@@ -18,9 +18,11 @@ use JamesHeinrich\GetID3\Utils;
 //                                                            ///
 /////////////////////////////////////////////////////////////////
 
-class Tta extends \JamesHeinrich\GetID3\Module\Handler
+class Tta extends Handler
 {
-
+	/**
+	 * @return bool
+	 */
 	public function Analyze() {
 		$info = &$this->getid3->info;
 
@@ -35,14 +37,14 @@ class Tta extends \JamesHeinrich\GetID3\Module\Handler
 		$info['tta']['magic'] = substr($ttaheader, 0, 3);
 		$magic = 'TTA';
 		if ($info['tta']['magic'] != $magic) {
-			$info['error'][] = 'Expecting "'.Utils::PrintHexBytes($magic).'" at offset '.$info['avdataoffset'].', found "'.Utils::PrintHexBytes($info['tta']['magic']).'"';
+			$this->error('Expecting "'.Utils::PrintHexBytes($magic).'" at offset '.$info['avdataoffset'].', found "'.Utils::PrintHexBytes($info['tta']['magic']).'"');
 			unset($info['fileformat']);
 			unset($info['audio']);
 			unset($info['tta']);
 			return false;
 		}
 
-		switch ($ttaheader{3}) {
+		switch ($ttaheader[3]) {
 			case "\x01": // TTA v1.x
 			case "\x02": // TTA v1.x
 			case "\x03": // TTA v1.x
@@ -50,7 +52,7 @@ class Tta extends \JamesHeinrich\GetID3\Module\Handler
 				$info['tta']['major_version'] = 1;
 				$info['avdataoffset'] += 16;
 
-				$info['tta']['compression_level']   = ord($ttaheader{3});
+				$info['tta']['compression_level']   = ord($ttaheader[3]);
 				$info['tta']['channels']            = Utils::LittleEndian2Int(substr($ttaheader,  4,  2));
 				$info['tta']['bits_per_sample']     = Utils::LittleEndian2Int(substr($ttaheader,  6,  2));
 				$info['tta']['sample_rate']         = Utils::LittleEndian2Int(substr($ttaheader,  8,  4));
@@ -93,9 +95,8 @@ class Tta extends \JamesHeinrich\GetID3\Module\Handler
 				break;
 
 			default:
-				$info['error'][] = 'This version of getID3() ['.$this->getid3->version().'] only knows how to handle TTA v1 and v2 - it may not work correctly with this file which appears to be TTA v'.$ttaheader{3};
+				$this->error('This version of getID3() ['.$this->getid3->version().'] only knows how to handle TTA v1 and v2 - it may not work correctly with this file which appears to be TTA v'.$ttaheader[3]);
 				return false;
-				break;
 		}
 
 		$info['audio']['encoder']         = 'TTA v'.$info['tta']['major_version'];

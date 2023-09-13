@@ -3,15 +3,15 @@
 namespace JamesHeinrich\GetID3\Module\Archive;
 
 use JamesHeinrich\GetID3\GetID3;
+use JamesHeinrich\GetID3\Module\Handler;
 use JamesHeinrich\GetID3\Utils;
 
 /////////////////////////////////////////////////////////////////
 /// getID3() by James Heinrich <info@getid3.org>               //
-//  available at http://getid3.sourceforge.net                 //
-//            or http://www.getid3.org                         //
-//          also https://github.com/JamesHeinrich/getID3       //
-/////////////////////////////////////////////////////////////////
-// See readme.txt for more details                             //
+//  available at https://github.com/JamesHeinrich/getID3       //
+//            or https://www.getid3.org                        //
+//            or http://getid3.sourceforge.net                 //
+//  see readme.txt for more details                            //
 /////////////////////////////////////////////////////////////////
 //                                                             //
 // module.archive.gzip.php                                     //
@@ -24,12 +24,19 @@ use JamesHeinrich\GetID3\Utils;
 //                                                             //
 /////////////////////////////////////////////////////////////////
 
-class Gzip extends \JamesHeinrich\GetID3\Module\Handler
+class Gzip extends Handler
 {
+	/**
+	 * Optional file list - disable for speed.
+	 * Decode gzipped files, if possible, and parse recursively (.tar.gz for example).
+	 *
+	 * @var bool
+	 */
+	public $parse_contents = false;
 
-	// public: Optional file list - disable for speed.
-	public $option_gzip_parse_contents = false; // decode gzipped files, if possible, and parse recursively (.tar.gz for example)
-
+	/**
+	 * @return bool
+	 */
 	public function Analyze() {
 		$info = &$this->getid3->info;
 
@@ -42,16 +49,17 @@ class Gzip extends \JamesHeinrich\GetID3\Module\Handler
 		//+---+---+---+---+---+---+---+---+---+---+
 
 		if ($info['php_memory_limit'] && ($info['filesize'] > $info['php_memory_limit'])) {
-			$info['error'][] = 'File is too large ('.number_format($info['filesize']).' bytes) to read into memory (limit: '.number_format($info['php_memory_limit'] / 1048576).'MB)';
+			$this->error('File is too large ('.number_format($info['filesize']).' bytes) to read into memory (limit: '.number_format($info['php_memory_limit'] / 1048576).'MB)');
 			return false;
 		}
 		$this->fseek(0);
 		$buffer = $this->fread($info['filesize']);
 
 		$arr_members = explode("\x1F\x8B\x08", $buffer);
+		$num_members = 0;
 		while (true) {
 			$is_wrong_members = false;
-			$num_members = intval(count($arr_members));
+			$num_members = count($arr_members);
 			for ($i = 0; $i < $num_members; $i++) {
 				if (strlen($arr_members[$i]) == 0) {
 					continue;
@@ -76,13 +84,13 @@ class Gzip extends \JamesHeinrich\GetID3\Module\Handler
 
 		$fpointer = 0;
 		$idx = 0;
-		for ($i = 0; $i < $num_members; $i++) {
-			if (strlen($arr_members[$i]) == 0) {
+		foreach ($arr_members as $member) {
+			if (strlen($member) == 0) {
 				continue;
 			}
 			$thisInfo = &$info['gzip']['member_header'][++$idx];
 
-			$buff = "\x1F\x8B\x08".$arr_members[$i];
+			$buff = "\x1F\x8B\x08". $member;
 
 			$attr = unpack($unpack_header, substr($buff, 0, $start_length));
 			$thisInfo['filemtime']      = Utils::LittleEndian2Int($attr['mtime']);
@@ -102,7 +110,7 @@ class Gzip extends \JamesHeinrich\GetID3\Module\Handler
 
 			$thisInfo['os'] = $this->get_os_type($thisInfo['raw']['os']);
 			if (!$thisInfo['os']) {
-				$info['error'][] = 'Read error on gzip file';
+				$this->error('Read error on gzip file');
 				return false;
 			}
 
@@ -192,7 +200,7 @@ class Gzip extends \JamesHeinrich\GetID3\Module\Handler
 
 			$info['gzip']['files'] = Utils::array_merge_clobber($info['gzip']['files'], Utils::CreateDeepArray($thisInfo['filename'], '/', $thisInfo['filesize']));
 
-			if ($this->option_gzip_parse_contents) {
+			if ($this->parse_contents) {
 				// Try to inflate GZip
 				$csize = 0;
 				$inflated = '';
@@ -204,11 +212,11 @@ class Gzip extends \JamesHeinrich\GetID3\Module\Handler
 					$inflated = gzinflate($cdata);
 
 					// Calculate CRC32 for inflated content
-					$thisInfo['crc32_valid'] = (bool) (sprintf('%u', crc32($inflated)) == $thisInfo['crc32']);
+					$thisInfo['crc32_valid'] = sprintf('%u', crc32($inflated)) == $thisInfo['crc32'];
 
 					// determine format
 					$formattest = substr($inflated, 0, 32774);
-					$getid3_temp = new GetID3;
+					$getid3_temp = new GetID3();
 					$determined_format = $getid3_temp->GetFileFormat($formattest);
 					unset($getid3_temp);
 
@@ -218,13 +226,13 @@ class Gzip extends \JamesHeinrich\GetID3\Module\Handler
 						case 'tar':
 							if (($temp_tar_filename = tempnam(Utils::getTempDirectory(), 'getID3')) === false) {
 								// can't find anywhere to create a temp file, abort
-								$info['error'][] = 'Unable to create temp file to parse TAR inside GZIP file';
+								$this->error('Unable to create temp file to parse TAR inside GZIP file');
 								break;
 							}
 							if ($fp_temp_tar = fopen($temp_tar_filename, 'w+b')) {
 								fwrite($fp_temp_tar, $inflated);
 								fclose($fp_temp_tar);
-								$getid3_temp = new GetID3;
+								$getid3_temp = new GetID3();
 								$getid3_temp->openfile($temp_tar_filename);
 								$getid3_tar = new Tar($getid3_temp);
 								$getid3_tar->Analyze();
@@ -232,7 +240,7 @@ class Gzip extends \JamesHeinrich\GetID3\Module\Handler
 								unset($getid3_temp, $getid3_tar);
 								unlink($temp_tar_filename);
 							} else {
-								$info['error'][] = 'Unable to fopen() temp file to parse TAR inside GZIP file';
+								$this->error('Unable to fopen() temp file to parse TAR inside GZIP file');
 								break;
 							}
 							break;
@@ -242,13 +250,21 @@ class Gzip extends \JamesHeinrich\GetID3\Module\Handler
 							// unknown or unhandled format
 							break;
 					}
+				} else {
+					$this->warning('PHP is not compiled with gzinflate() support. Please enable PHP Zlib extension or recompile with the --with-zlib switch');
 				}
 			}
 		}
 		return true;
 	}
 
-	// Converts the OS type
+	/**
+	 * Converts the OS type.
+	 *
+	 * @param string $key
+	 *
+	 * @return string
+	 */
 	public function get_os_type($key) {
 		static $os_type = array(
 			'0'   => 'FAT filesystem (MS-DOS, OS/2, NT/Win32)',
@@ -270,7 +286,13 @@ class Gzip extends \JamesHeinrich\GetID3\Module\Handler
 		return (isset($os_type[$key]) ? $os_type[$key] : '');
 	}
 
-	// Converts the eXtra FLags
+	/**
+	 * Converts the eXtra FLags.
+	 *
+	 * @param string $key
+	 *
+	 * @return string
+	 */
 	public function get_xflag_type($key) {
 		static $xflag_type = array(
 			'0' => 'unknown',

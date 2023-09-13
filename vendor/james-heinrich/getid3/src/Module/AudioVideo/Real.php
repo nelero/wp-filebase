@@ -2,15 +2,15 @@
 
 namespace JamesHeinrich\GetID3\Module\AudioVideo;
 
+use JamesHeinrich\GetID3\Module\Handler;
 use JamesHeinrich\GetID3\Utils;
 
 /////////////////////////////////////////////////////////////////
 /// getID3() by James Heinrich <info@getid3.org>               //
-//  available at http://getid3.sourceforge.net                 //
-//            or http://www.getid3.org                         //
-//          also https://github.com/JamesHeinrich/getID3       //
-/////////////////////////////////////////////////////////////////
-// See readme.txt for more details                             //
+//  available at https://github.com/JamesHeinrich/getID3       //
+//            or https://www.getid3.org                        //
+//            or http://getid3.sourceforge.net                 //
+//  see readme.txt for more details                            //
 /////////////////////////////////////////////////////////////////
 //                                                             //
 // module.audio-video.real.php                                 //
@@ -18,9 +18,11 @@ use JamesHeinrich\GetID3\Utils;
 //                                                            ///
 /////////////////////////////////////////////////////////////////
 
-class Real extends \JamesHeinrich\GetID3\Module\Handler
+class Real extends Handler
 {
-
+	/**
+	 * @return bool
+	 */
 	public function Analyze() {
 		$info = &$this->getid3->info;
 
@@ -55,7 +57,7 @@ class Real extends \JamesHeinrich\GetID3\Module\Handler
 					}
 					return true;
 				}
-				$info['error'][] = 'There was a problem parsing this RealAudio file. Please submit it for analysis to info@getid3.org';
+				$this->error('There was a problem parsing this RealAudio file. Please submit it for analysis to info@getid3.org');
 				unset($info['bitrate']);
 				unset($info['playtime_seconds']);
 				return false;
@@ -69,7 +71,7 @@ class Real extends \JamesHeinrich\GetID3\Module\Handler
 			$thisfile_real_chunks_currentchunk['offset'] = $this->ftell() - 8;
 			$thisfile_real_chunks_currentchunk['length'] = $ChunkSize;
 			if (($thisfile_real_chunks_currentchunk['offset'] + $thisfile_real_chunks_currentchunk['length']) > $info['avdataend']) {
-				$info['warning'][] = 'Chunk "'.$thisfile_real_chunks_currentchunk['name'].'" at offset '.$thisfile_real_chunks_currentchunk['offset'].' claims to be '.$thisfile_real_chunks_currentchunk['length'].' bytes long, which is beyond end of file';
+				$this->warning('Chunk "'.$thisfile_real_chunks_currentchunk['name'].'" at offset '.$thisfile_real_chunks_currentchunk['offset'].' claims to be '.$thisfile_real_chunks_currentchunk['length'].' bytes long, which is beyond end of file');
 				return false;
 			}
 
@@ -100,7 +102,7 @@ class Real extends \JamesHeinrich\GetID3\Module\Handler
 							break;
 
 						default:
-							//$info['warning'][] = 'Expected .RMF-object_version to be "0", actual value is "'.$thisfile_real_chunks_currentchunk['object_version'].'" (should not be a problem)';
+							//$this->warning('Expected .RMF-object_version to be "0", actual value is "'.$thisfile_real_chunks_currentchunk['object_version'].'" (should not be a problem)');
 							break;
 
 					}
@@ -216,7 +218,8 @@ class Real extends \JamesHeinrich\GetID3\Module\Handler
 
 							case 'audio/x-pn-realaudio':
 							case 'audio/x-pn-multirate-realaudio':
-								$this->ParseOldRAheader($thisfile_real_chunks_currentchunk_typespecificdata, $thisfile_real_chunks_currentchunk['parsed_audio_data']);
+								$this->ParseOldRAheader($thisfile_real_chunks_currentchunk_typespecificdata, $parsedAudioData);
+								$thisfile_real_chunks_currentchunk['parsed_audio_data'] = &$parsedAudioData;
 
 								$info['audio']['sample_rate']     = $thisfile_real_chunks_currentchunk['parsed_audio_data']['sample_rate'];
 								$info['audio']['bits_per_sample'] = $thisfile_real_chunks_currentchunk['parsed_audio_data']['bits_per_sample'];
@@ -356,7 +359,7 @@ class Real extends \JamesHeinrich\GetID3\Module\Handler
 					break;
 
 				default:
-					$info['warning'][] = 'Unhandled RealMedia chunk "'.$ChunkName.'" at offset '.$thisfile_real_chunks_currentchunk['offset'];
+					$this->warning('Unhandled RealMedia chunk "'.$ChunkName.'" at offset '.$thisfile_real_chunks_currentchunk['offset']);
 					break;
 			}
 			$ChunkCounter++;
@@ -372,7 +375,12 @@ class Real extends \JamesHeinrich\GetID3\Module\Handler
 		return true;
 	}
 
-
+	/**
+	 * @param string $OldRAheaderData
+	 * @param array  $ParsedArray
+	 *
+	 * @return bool
+	 */
 	public function ParseOldRAheader($OldRAheaderData, &$ParsedArray) {
 		// http://www.freelists.org/archives/matroska-devel/07-2003/msg00010.html
 
@@ -478,8 +486,9 @@ class Real extends \JamesHeinrich\GetID3\Module\Handler
 			$ParsedArray['fourcc'] = $ParsedArray['fourcc3'];
 
 		}
+		/** @var string[]|false[] $value */
 		foreach ($ParsedArray['comments'] as $key => $value) {
-			if ($ParsedArray['comments'][$key][0] === false) {
+			if ($value[0] === false) {
 				$ParsedArray['comments'][$key][0] = '';
 			}
 		}
@@ -487,6 +496,12 @@ class Real extends \JamesHeinrich\GetID3\Module\Handler
 		return true;
 	}
 
+	/**
+	 * @param string $fourcc
+	 * @param int    $bitrate
+	 *
+	 * @return string
+	 */
 	public function RealAudioCodecFourCClookup($fourcc, $bitrate) {
 		static $RealAudioCodecFourCClookup = array();
 		if (empty($RealAudioCodecFourCClookup)) {
