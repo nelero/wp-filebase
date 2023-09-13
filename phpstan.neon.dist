@@ -1,0 +1,10 @@
+parameters:
+  level: 1
+  paths:
+    - src/
+    - vendor/
+    - lib/
+    - classes/
+    - extras/
+  scanFiles:
+    - vendor/php-stubs/wordpress-tests-stubs/wordpress-tests-stubs.php
